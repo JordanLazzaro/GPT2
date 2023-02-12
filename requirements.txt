@@ -1,0 +1,9 @@
+transformers==4.26.1
+wandb==0.13.10
+newspaper3k==0.2.8
+beautifulsoup4==4.6.3
+tiktoken==0.2.0
+requests==2.28.2
+torch @ https://download.pytorch.org/whl/cu116/torch-1.13.1%2Bcu116-cp38-cp38-linux_x86_64.whl
+numpy==1.21.6
+tqdm==4.64.1
