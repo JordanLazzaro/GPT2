@@ -11,7 +11,7 @@ class PaulGrahamEssaysDataset(Dataset):
 
     def __len__(self):
         # we don't want to get any index out of range errors
-        return len(self.data) - self.ctx_size + 1
+        return len(self.data) - self.ctx_size
 
     def __getitem__(self, idx):
         # we want a sequence length of 1 more than the ctx_len
