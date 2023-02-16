@@ -6,7 +6,7 @@ import re
 import tiktoken
 import os
 import numpy as np
-import tqdm
+from tqdm import tqdm
 
 
 URL = "http://paulgraham.com/articles.html"
@@ -61,7 +61,7 @@ val_essays = tokenized_essays[num_train:]
 
 print('writing train/val sets to binary files...')
 splits = {'train': train_essays, 'val': val_essays}
-for split, dataset in splits.items():
+for split, dataset in tqdm(splits.items()):
     filename = f'{split}.bin'
     dtype = np.uint16 # (can do since enc.max_token_value == 50256 is < 2**16)
 

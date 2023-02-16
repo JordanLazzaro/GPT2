@@ -6,17 +6,23 @@ import tqdm
 from config import GPT2Config
 from model import GPT2LMHead
 from data.data import PaulGrahamEssaysDataset
-# for logging metrics to wandb
 
+# for logging metrics to wandb
 import wandb
 wandb.login()
 
+################
+# Prepare data #
+################
 train_data = PaulGrahamEssaysDataset(ctx_size=1024, split='train')
 train_dataloader = DataLoader(train_data, batch_size=8, shuffle=True, pin_memory=True, num_workers=2)
 
 val_data = PaulGrahamEssaysDataset(ctx_size=1024, split='val')
 val_dataloader = DataLoader(val_data, batch_size=8, shuffle=True, pin_memory=True, num_workers=2)
 
+#################
+# Prepare model #
+#################
 model = GPT2LMHead.from_pretrained()
 config = GPT2Config()
 
