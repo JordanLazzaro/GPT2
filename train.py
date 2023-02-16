@@ -5,7 +5,7 @@ import tqdm
 
 from config import GPT2Config
 from model import GPT2LMHead
-from data.data import PaulGrahamEssaysDataset
+from data.dataset import PaulGrahamEssaysDataset
 
 # for logging metrics to wandb
 import wandb
