@@ -33,8 +33,11 @@ class PaulGrahamEssaysDataset(Dataset):
         # seq: "hello", "there", "my", "friend"
         # y = ["there", "my", "friend"]
         # x = ["hello", "there", "my"]
-        seq = torch.from_numpy((self.data[idx:idx + self.ctx_size + 1]).astype(np.int64))
-        return seq[:-1], seq[1:]
+        seq = self.data[idx:idx + self.ctx_size + 1]
+        X = torch.from_numpy(seq[:-1].astype(np.int64))
+        Y = torch.from_numpy(seq[1:].astype(np.int64))
+        
+        return X, Y
 
     def tokenize(self, example):
             ids = self.tokenizer.encode_ordinary(example)
