@@ -1,2 +1,2 @@
 # GPT2
-Fine-tune GPT-2 117M on PG essays
+From scratch GPT-2 117M for fine-tuning on PG essays (and future datasets)
