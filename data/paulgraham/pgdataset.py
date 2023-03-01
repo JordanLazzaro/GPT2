@@ -13,16 +13,16 @@ from tqdm import tqdm
 
 class PaulGrahamEssaysDataset(Dataset):
     def __init__(self, ctx_size, split='train'):
-        data_path = os.path.join(os.path.dirname(__file__), f'{split}.bin')
+        data_path = f'{split}.bin'
         
+        self.ctx_size = ctx_size
+        self.tokenizer = tiktoken.get_encoding("gpt2")
+            
         if os.path.isfile(data_path):
             self.data = np.memmap(data_path, dtype=np.uint16, mode='r')
         else:
             self.prepare_dataset()
             self.data = np.memmap(data_path, dtype=np.uint16, mode='r')
-
-        self.ctx_size = ctx_size
-        self.tokenizer = tiktoken.get_encoding("gpt2")
 
     def __len__(self):
         # we don't want to get any index out of range errors
@@ -40,10 +40,10 @@ class PaulGrahamEssaysDataset(Dataset):
         return X, Y
 
     def tokenize(self, example):
-            ids = self.tokenizer.encode_ordinary(example)
-            ids.append(self.tokenizer.eot_token)
+        ids = self.tokenizer.encode_ordinary(example)
+        ids.append(self.tokenizer.eot_token)
 
-            return {'ids': ids, 'len': len(ids)}
+        return {'ids': ids, 'len': len(ids)}
 
     def prepare_dataset(self):
         print('downloading and processing dataset...')

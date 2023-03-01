@@ -1,6 +1,6 @@
 from config import GPT2Config
 from model import GPT2LMHead
-from data.dataset import PaulGrahamEssaysDataset
+from data.pgessays.dataset import PaulGrahamEssaysDataset
 from trainer import Trainer
 
 import torch
@@ -26,19 +26,15 @@ config = GPT2Config()
 # Prepare data #
 ################
 train_data = PaulGrahamEssaysDataset(ctx_size=config.ctx_size, split='train')
-train_dataloader = DataLoader(train_data, batch_size=8, shuffle=True, pin_memory=True, num_workers=2)
-
 val_data = PaulGrahamEssaysDataset(ctx_size=config.ctx_size, split='val')
-val_dataloader = DataLoader(val_data, batch_size=8, shuffle=True, pin_memory=True, num_workers=2)
+
+train_dataloader = DataLoader(train_data)
+val_dataloader = DataLoader(val_data)
 
 ############################
 # Prepare model + optmizer #
 ############################
 model = GPT2LMHead.from_pretrained()
-
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-model.to(device) # TODO: use DistributedDataParallel
-
 optimizer = AdamW(model.parameters(), lr=config.min_lr)
 
 ###################
@@ -46,7 +42,9 @@ optimizer = AdamW(model.parameters(), lr=config.min_lr)
 ###################
 trainer = Trainer(
     model=model,
-    opitimizer=optimizer,
+    optimizer=optimizer,
+    train_dataloader=train_dataloader,
+    val_dataloader=val_dataloader,
     config=config
 )
 
@@ -55,4 +53,4 @@ trainer = Trainer(
 #############
 trainer.fit(train_dataloader, val_dataloader)
 
-wandb.finish()
+# wandb.finish()

@@ -1,5 +1,6 @@
 import torch
 from tqdm import tqdm
+import time
 
 # for logging metrics to wandb
 import wandb
@@ -8,60 +9,83 @@ class Trainer:
     def __init__(
         self,
         model,
-        opitimizer,
+        optimizer,
+        train_dataloader,
+        val_dataloader,
         config
     ):
         self.model = model
-        self.optimizer = opitimizer
+        self.optimizer = optimizer
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
         self.config = config
+        
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    @torch.no_grad()
+    def estimate_loss(self):
+        ''' eval helper adopted from nanoGPT '''
+        out = {}
+        self.model.eval()
+        for split, data in [('train', self.train_dataloader), ('val', self.val_dataloader)]:
+            data_iter = iter(data)
+            losses = torch.zeros(self.config.eval_iters)
+            for i in range(self.config.eval_iters):
+                X, Y = next(data_iter)
+                X, Y = X.to(self.device), Y.to(self.device)
+                with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+                    logits, loss = self.model(X, Y)
+                losses[i] = loss.item()
+            out[split] = losses.mean()
+        self.model.train()
+        
+        return out
     
-    def fit(self, train_dataloader, val_dataloader):
-        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.model.to(device) # TODO: use DistributedDataParallel
+    def fit(self):
+        self.model.train()
+        self.model.to(self.device) # TODO: use DistributedDataParallel
 
+        train_dataloader_iter = iter(self.train_dataloader)
+        
         scaler = torch.cuda.amp.GradScaler()
-
+        
         training_iter = 0
-        for epoch in range(self.config.num_epochs):
-            for i, (X, Y) in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
-                X, Y = X.to(device), Y.to(device)
-                # TODO: test any differnce between float16 and bfloat16
-                with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
-                        logits, loss = self.model(X, Y)
-                        loss = loss / self.config.accumulate_iters
-                
-                scaler.scale(loss).backward()
-                
-                # TODO: set LR using a warmup/decay schedule (ie linear + cosine or 1-cycle)
+        t0 = time.time()
+        while training_iter < self.config.training_iters:
+            if training_iter % self.config.eval_interval == 0:
+                losses = self.estimate_loss()
+                print(f"iter {training_iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+                # wandb.log({
+                #     "iter": training_iter,
+                #     "train/loss": losses['train'],
+                #     "val/loss": losses['val'],
+                # })
+
+            X, Y = next(train_dataloader_iter)
+            X, Y = X.to(self.device), Y.to(self.device)
+            
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                _, loss = self.model(X, Y)
                 if self.config.accumulate_grads:
-                    if (i+1) % self.config.accumulate_iters == 0:
-                        scaler.step(self.optimizer)
-                        scaler.update()
-                        self.optimizer.zero_grad(set_to_none=True)
-                else:
+                    loss = loss / self.config.accumulate_iters
+            
+            scaler.scale(loss).backward()
+            
+            if self.config.accumulate_grads:
+                if training_iter % self.config.accumulate_iters == 0:
                     scaler.step(self.optimizer)
                     scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
+            else:
+                scaler.step(self.optimizer)
+                scaler.update()
+                self.optimizer.zero_grad(set_to_none=True)
 
-                # TODO: log train/val loss and learning rate
-                if training_iter % self.config.eval_interval == 0:
-                    val_loss = self.evaluate(val_dataloader)
-                    wandb.log({
-                        'epoch': epoch,
-                        'iter': training_iter,
-                        'val/loss': val_loss
-                        # log train loss on same scale
-                     })
-                     # TODO: save checkpoint if good enough
-
-                if training_iter >= self.config.training_iters:
-                    break
-                training_iter += 1
-
-    @torch.no_grad()
-    def evaluate(self, val_dataloader):
-        self.model.eval()
-        # TODO: put an eval loop
-        self.model.train()
-        
-        return None, None
+            t1 = time.time()
+            dt = t1 - t0
+            t0 = t1
+            if training_iter % self.config.log_interval == 0:
+                lossf = loss.item()
+                print(f"iter {training_iter}: loss {lossf:.4f}, time {dt*1000:.2f}ms")
+            
+            training_iter += 1
