@@ -1,13 +1,11 @@
-from config import GPT2Config
-from model import GPT2LMHead
-from data.pgessays.dataset import PaulGrahamEssaysDataset
-from trainer import Trainer
-
-import torch
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
-import tqdm
+from config import GPT2Config
+from model import GPT2LMHead
+from trainer import Trainer
+from data.paulgraham.pgdataset import PaulGrahamEssaysDataset
+
 
 # for logging metrics to wandb
 import wandb

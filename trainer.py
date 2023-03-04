@@ -51,6 +51,7 @@ class Trainer:
         scaler = torch.cuda.amp.GradScaler()
         
         best_val_loss = float('inf')
+        iters_since_best_val_loss = 0
         training_iter = 0
         t0 = time.time()
         while training_iter < self.config.training_iters:
@@ -59,7 +60,7 @@ class Trainer:
                 print(f"iter {training_iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
                 if self.config.logging:
                     wandb.log({
-                        "iter": training_iter,
+                        "step": training_iter,
                         "train/loss": losses['train'],
                         "val/loss": losses['val'],
                     })
@@ -75,6 +76,12 @@ class Trainer:
                         }
                         print(f'saving checkpoint to: {self.config.checkpoint_dir}/best_val_checkpoint.pt')
                         torch.save(checkpoint, os.path.join(self.config.checkpoint_dir, f'best_val_checkpoint.pt'))
+                    else:
+                        iters_since_best_val_loss += self.config.eval_interval
+                if self.config.early_stopping:
+                    if iters_since_best_val_loss >= self.config.patience:
+                        print(f'[STOPPING] training_iter: {training_iter}, current val/loss: {losses["val"]}, best val/loss: {best_val_loss}')
+                        break
                         
             X, Y = next(train_dataloader_iter)
             X, Y = X.to(self.device), Y.to(self.device)
