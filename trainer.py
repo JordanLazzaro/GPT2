@@ -49,17 +49,32 @@ class Trainer:
         
         scaler = torch.cuda.amp.GradScaler()
         
+        best_val_loss = float('-inf')
         training_iter = 0
         t0 = time.time()
         while training_iter < self.config.training_iters:
             if training_iter % self.config.eval_interval == 0:
                 losses = self.estimate_loss()
                 print(f"iter {training_iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-                # wandb.log({
-                #     "iter": training_iter,
-                #     "train/loss": losses['train'],
-                #     "val/loss": losses['val'],
-                # })
+                if self.config.logging:
+                    wandb.log({
+                        "iter": training_iter,
+                        "train/loss": losses['train'],
+                        "val/loss": losses['val'],
+                    })
+                if self.config.save_checkpoints:
+                    if losses['val'] < best_val_loss:
+                        best_val_loss = losses['val']
+                        checkpoint = {
+                            'model': self.model.state_dict(),
+                            'optimizer': self.optimizer.state_dict(),
+                            'training_iter': training_iter,
+                            'best_val_loss': best_val_loss,
+                            'config': self.config
+                        }
+                        print(f'saving checkpoint to: {self.config.checkpoint_dir}')
+                        torch.save(checkpoint, os.path.join(self.config.checkpoint_dir, f'checkpoint_{training_iter}.pt'))
+                        
 
             X, Y = next(train_dataloader_iter)
             X, Y = X.to(self.device), Y.to(self.device)

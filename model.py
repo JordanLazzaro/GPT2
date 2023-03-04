@@ -44,7 +44,7 @@ class MultiHeadAttention(nn.Module):
         # was to help with broadcasting efficiency or not.
         self.register_buffer(
             "bias",
-            torch.tril(torch.ones((config.ctx_size, config.ctx_size), dtype=torch.uint8)).view(
+            torch.tril(torch.ones((config.ctx_size, config.ctx_size))).reshape(
                 1, 1, config.ctx_size, config.ctx_size
             ),
         )
@@ -61,7 +61,7 @@ class MultiHeadAttention(nn.Module):
         K = K.reshape(batch_size, seq_len, self.nheads, head_dim).transpose(1, 2)
         V = V.reshape(batch_size, seq_len, self.nheads, head_dim).transpose(1, 2)
 
-        attn = Q @ K.transpose(-2, -1) * (1.0 / math.sqrt(head_dim))
+        attn = (Q @ K.transpose(-2, -1)) * (1.0 / math.sqrt(head_dim))
         attn = attn.masked_fill(self.bias[:,:,:seq_len,:seq_len]==0, float('-inf'))
         attn = F.softmax(attn, dim=-1)
         
@@ -70,16 +70,15 @@ class MultiHeadAttention(nn.Module):
         out = attn @ V
         out = out.transpose(1, 2).reshape(batch_size, seq_len, emb_size)
         
-        out = self.c_proj(out)
-        out = self.resid_dropout(out)
+        out = self.resid_dropout(self.c_proj(out))
 
         return out
 
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.c_fc = nn.Linear(config.emb_size, 4 * config.emb_size)
-        self.c_proj = nn.Linear(4 * config.emb_size, config.emb_size)
+        self.c_fc = nn.Linear(config.emb_size, 4 * config.emb_size, bias=config.bias)
+        self.c_proj = nn.Linear(4 * config.emb_size, config.emb_size, bias=config.bias)
         self.resid_dropout = nn.Dropout(config.dropout)
 
     def forward(self, x):
@@ -99,10 +98,8 @@ class TransformerBlock(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = self.ln_1(x)
-        x = x + self.attn(x)
-        x = self.ln_2(x)
-        x = x + self.mlp(x)
+        x = x + self.attn(self.ln_1(x))
+        x = x + self.mlp(self.ln_2(x))
 
         return x
 
@@ -138,6 +135,8 @@ class GPT2LMHead(nn.Module):
         self.transformer = GPT2Base(config)
         self.lm_head = nn.Linear(config.emb_size, config.vocab_size, bias=False)
 
+        self.transformer.wte.weight = self.lm_head.weight
+
         self.apply(self._init_weights) # TODO: figure out how Huggingface does initialization
 
         for n, p in self.named_parameters():
@@ -165,7 +164,7 @@ class GPT2LMHead(nn.Module):
 
     @classmethod
     def from_pretrained(cls):
-        ''' for GPT-2 117M model only (for now) with a some inspiration from nanoGPT '''
+        ''' helper adopted from nanoGPT '''
         
         def is_transposed(k):
             ''' helper to determine whether a weight should be transposed '''
@@ -196,3 +195,17 @@ class GPT2LMHead(nn.Module):
                     sd[k].copy_(hf_sd[k])
 
         return model
+
+    @torch.no_grad()
+    def generate(self, idxs, max_tokens, temp=1.0):
+        ''' helper adopted from nanoGPT '''
+        # TODO: add top k selection
+        for i in range(max_tokens):
+            cropped_idxs = idxs if idxs.size(1) <= self.config.ctx_size else idxs[:, -self.config.ctx_size]
+            logits, _ = self(cropped_idxs)
+            logits = logits[:, -1, :] / temp
+            probs = F.softmax(logits, dim=-1)
+            pred_idx = torch.multinomial(probs, num_samples=1)
+            idxs = torch.cat((idxs, pred_idx), dim=1)
+
+        return idxs

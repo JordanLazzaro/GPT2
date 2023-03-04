@@ -23,7 +23,10 @@ class GPT2Config:
     eval_interval = 100
     accumulate_grads = True
     accumulate_iters = 5
+    logging = True
     log_interval = 20
+    save_checkpoints = True
+    checkpoint_dir = '.'
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
