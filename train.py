@@ -13,14 +13,12 @@ import tqdm
 import wandb
 wandb.login()
 
-# TODO
-# wandb.init(project='project', entity='entity', name='run_name')
-# wandb.config = { 'figure_out': 'what_to_put_here'}
-
 # TODO: take in hyperparam and training config values
 # as command line args and populate them into config separately
 
 config = GPT2Config()
+
+# wandb.init(project='Paul Graham GPT', name='initial run 3', config=config)
 
 ################
 # Prepare data #

@@ -17,7 +17,7 @@ class GPT2Config:
     max_lr = 6e-4 # TODO: use lr finder
     betas = (0.9, 0.95) # betas for first and second moments in Adam/AdamW
     batch_size = 8
-    training_iters = 70000
+    training_iters = 10000
     eval_iters = 50
 
     eval_interval = 100
@@ -26,7 +26,7 @@ class GPT2Config:
     logging = True
     log_interval = 20
     save_checkpoints = True
-    checkpoint_dir = '.'
+    checkpoint_dir = './checkpoints'
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

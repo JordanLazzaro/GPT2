@@ -1,6 +1,7 @@
 import torch
 from tqdm import tqdm
 import time
+import os
 
 # for logging metrics to wandb
 import wandb
@@ -49,7 +50,7 @@ class Trainer:
         
         scaler = torch.cuda.amp.GradScaler()
         
-        best_val_loss = float('-inf')
+        best_val_loss = float('inf')
         training_iter = 0
         t0 = time.time()
         while training_iter < self.config.training_iters:
@@ -72,10 +73,9 @@ class Trainer:
                             'best_val_loss': best_val_loss,
                             'config': self.config
                         }
-                        print(f'saving checkpoint to: {self.config.checkpoint_dir}')
-                        torch.save(checkpoint, os.path.join(self.config.checkpoint_dir, f'checkpoint_{training_iter}.pt'))
+                        print(f'saving checkpoint to: {self.config.checkpoint_dir}/best_val_checkpoint.pt')
+                        torch.save(checkpoint, os.path.join(self.config.checkpoint_dir, f'best_val_checkpoint.pt'))
                         
-
             X, Y = next(train_dataloader_iter)
             X, Y = X.to(self.device), Y.to(self.device)
             
@@ -100,7 +100,7 @@ class Trainer:
             dt = t1 - t0
             t0 = t1
             if training_iter % self.config.log_interval == 0:
-                lossf = loss.item()
-                print(f"iter {training_iter}: loss {lossf:.4f}, time {dt*1000:.2f}ms")
+                lossf = loss.item() * self.config.accumulate_iters if self.config.accumulate_grads else loss.item()
+                print(f"training_iter {training_iter}: train/loss {lossf:.4f}, time {dt*1000:.2f}ms")
             
             training_iter += 1
