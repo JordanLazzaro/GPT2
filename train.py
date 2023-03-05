@@ -1,10 +1,10 @@
 from torch.optim import AdamW
-from torch.utils.data import DataLoader
 
 from config import GPT2Config
 from model import GPT2LMHead
 from trainer import Trainer
 from data.paulgraham.pgdataset import PaulGrahamEssaysDataset
+from data import DataLoader
 
 
 # for logging metrics to wandb
