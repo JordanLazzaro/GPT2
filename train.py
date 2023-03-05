@@ -4,7 +4,7 @@ from config import GPT2Config
 from model import GPT2LMHead
 from trainer import Trainer
 from data.paulgraham.pgdataset import PaulGrahamEssaysDataset
-from data import DataLoader
+from data.dataloader import DataLoader
 
 
 # for logging metrics to wandb
